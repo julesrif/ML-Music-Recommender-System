@@ -1,4 +1,5 @@
 ipykernel==7.3.0
+ipython==9.16.1
 pandas==3.0.5
 kaggle==2.2.4
 python-dotenv==1.2.2
@@ -8,5 +9,7 @@ seaborn==0.13.2
 numpy==2.5.1
 pre-commit==4.6.1
 zenodo-get==3.0.3
-scikit-surprise==1.1.5
 missingno==0.5.2
+torch==2.13.0
+shap==0.52.0
+lime==0.2.0.1

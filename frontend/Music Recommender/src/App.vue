@@ -1,0 +1,87 @@
+<script setup>
+import { ref } from 'vue';
+
+const playlistId = ref('');
+const track1 = ref('');
+const track2 = ref('');
+const track3 = ref('');
+const results = ref([]);
+
+const getHistorical = async () => {
+  if (!playlistId.value) return;
+  results.value = [];
+  try {
+    const res = await fetch(`/api/recommend/${playlistId.value}`);
+    if (!res.ok) throw new Error("Playlist no encontrada en el histórico.");
+    const data = await res.json();
+    results.value = data.recommendations || [];
+  } catch (e) {
+    alert(e.message);
+  }
+};
+
+const getColdStart = async () => {
+  const tracks = [track1.value, track2.value, track3.value].filter(Boolean);
+  if (tracks.length === 0) return;
+  results.value = [];
+  try {
+    const res = await fetch(`/api/recommend/new`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track_ids: tracks })
+    });
+    if (!res.ok) throw new Error("Fallo al procesar los IDs de las canciones.");
+    const data = await res.json();
+    results.value = data.recommendations || [];
+  } catch (e) {
+    alert(e.message);
+  }
+};
+</script>
+
+<template>
+  <div class="bg-gray-900 text-gray-100 min-h-screen p-8 font-sans">
+    <div class="max-w-5xl mx-auto">
+      <h1 class="text-4xl font-extrabold mb-8 text-green-500">Spotify Two-Tower Recommender</h1>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Caso 1: Playlist Histórica -->
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+          <h2 class="text-2xl font-bold mb-2">1. Playlist Histórica</h2>
+          <p class="text-sm text-gray-400 mb-4">Inferencia vectorizada vía Embeddings estáticos.</p>
+          <input v-model="playlistId" placeholder="Introduce el ID de la Playlist..."
+            class="w-full p-3 rounded bg-gray-900 border border-gray-600 text-white mb-4 focus:outline-none focus:border-green-500">
+          <button @click="getHistorical"
+            class="bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded font-bold w-full transition-colors">
+            Generar Recomendación
+          </button>
+        </div>
+
+        <div class="bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+          <h2 class="text-2xl font-bold mb-2">2. Cold-Start (Lista Nueva)</h2>
+          <p class="text-sm text-gray-400 mb-4">Inferencia al vuelo mediante Mean-Pooling.</p>
+          <input v-model="track1" placeholder="Track ID 1..."
+            class="w-full p-3 rounded bg-gray-900 border border-gray-600 text-white mb-2 focus:outline-none focus:border-blue-500">
+          <input v-model="track2" placeholder="Track ID 2..."
+            class="w-full p-3 rounded bg-gray-900 border border-gray-600 text-white mb-2 focus:outline-none focus:border-blue-500">
+          <input v-model="track3" placeholder="Track ID 3..."
+            class="w-full p-3 rounded bg-gray-900 border border-gray-600 text-white mb-4 focus:outline-none focus:border-blue-500">
+          <button @click="getColdStart"
+            class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded font-bold w-full transition-colors">
+            Recomendar por Contenido
+          </button>
+        </div>
+      </div>
+
+      <div v-if="results.length" class="mt-10 bg-gray-800 p-6 rounded-lg shadow-lg border border-gray-700">
+        <h2 class="text-2xl font-bold mb-6 text-green-400">Top Recomendaciones</h2>
+        <ul class="divide-y divide-gray-700">
+          <li v-for="(track, i) in results" :key="i" class="py-3 flex items-center">
+            <span class="text-gray-500 font-mono w-8">{{ i + 1 }}.</span>
+            <span class="font-medium">{{ track }}</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</template>

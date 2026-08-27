@@ -1,11 +1,7 @@
-# Web & API (Nuevos para el backend)
+# Serving only. The notebook exports item/user vectors already produced by the item tower,
+# so the API needs neither PyTorch nor pandas: scoring is a numpy matrix-vector product.
 fastapi>=0.115,<1.0
 uvicorn[standard]>=0.30,<1.0
 pydantic>=2.7,<3.0
-pytest>=8.0,<9.0
-
-# Core Machine Learning (Bloqueados a la versión de tu venv actual)
-torch==2.13.0
-pandas==3.0.5
-numpy==2.5.1
-scikit-learn==1.9.0
+numpy>=2.0
+scipy>=1.13

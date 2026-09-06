@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from scipy.sparse import load_npz
 
-DEPLOY = Path(__file__).resolve().parent.parent / "deploy"
+DEPLOY = Path(__file__).resolve().parent / "deploy"
 
 state: dict = {}
 

@@ -273,7 +273,7 @@ function reset() {
               <button
                 v-for="option in [
                   { key: 'plays', label: 'Popular' },
-                  { key: 'name', label: 'A–Z' },
+                  { key: 'name', label: 'A-Z' },
                 ]"
                 :key="option.key"
                 class="px-2 py-0.5 transition-colors"
@@ -326,7 +326,7 @@ function reset() {
             <template v-else-if="searchMode">
               {{ trackTotal.toLocaleString() }} {{ trackTotal === 1 ? 'track' : 'tracks' }} found
               <button class="text-emerald-500 hover:text-emerald-400" @click="trackQuery = ''">
-                — clear
+                - clear
               </button>
             </template>
             <template v-else-if="selectedArtist">

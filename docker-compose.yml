@@ -8,18 +8,17 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      # Montaje de solo lectura para los artefactos de Machine Learning
-      - ../models:/app/models:ro
-      - ../cache:/app/cache:ro
+      - ./deploy:/app/deploy
     environment:
       # Límite estricto para evitar colapso de recursos en inferencia CPU
       - OMP_NUM_THREADS=1
       - MKL_NUM_THREADS=1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('localhost:8000'); conn.request('GET', '/api/health'); exit(0 if conn.getresponse().status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 5s
     deploy:
       resources:
         limits:
@@ -32,7 +31,7 @@ services:
     container_name: recsys_frontend
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "8075:80"
     depends_on:
       backend:
         condition: service_healthy

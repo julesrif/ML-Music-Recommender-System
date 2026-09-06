@@ -39,9 +39,9 @@ The two datasets are joined on track identity, keeping only tracks that possess 
 
 The Spotify Million Playlist Dataset (MPD) was released for the RecSys Challenge 2018 under a research-only licence and is consumed here via a secondary Zenodo mirror. Operating constraints applied to this project and its deployment:
 
-* **Academic use only** — an academic Proof of Concept for university evaluation; not commercialised, monetised or offered to consumers.
-* **Deployment isolation** — ephemeral, restricted to academic reviewers, not search-indexed, no advertising, no external user-data collection.
-* **No data redistribution** — the backend never hosts or serves the raw MPD database; it returns inference results computed from exported model weights.
+* **Academic use only** - an academic Proof of Concept for university evaluation; not commercialised, monetised or offered to consumers.
+* **Deployment isolation** - ephemeral, restricted to academic reviewers, not search-indexed, no advertising, no external user-data collection.
+* **No data redistribution** - the backend never hosts or serves the raw MPD database; it returns inference results computed from exported model weights.
 
 Provenance and consent implications are discussed in [docs/presentation-notes.md](docs/presentation-notes.md#data-provenance-and-consent).
 
@@ -69,7 +69,7 @@ This is data minimisation, not a claim of regulatory compliance: no lawful basis
 - Invalid measurements are cleaned: rows with `tempo == 0` (silence/corrupt readings) are dropped; `time_signature == 0` is imputed with the modal value, since it is categorical rather than a genuine zero.
 - The 10.7 GB Playlist2vec MySQL dump is streamed into a local SQLite database (`spotify.db`) rather than loaded into memory in full, as a one-off cost reused across later runs.
 - `track_playlist1` holds **125.4M** interactions, so the audio-feature filter is executed **inside SQLite** (via a temporary catalogue table and a one-off index on `track_playlist1(track_id)`) and only surviving rows are materialised in pandas. Loading the raw table would require tens of gigabytes; the filtered result is **7,218,586** interactions (5.8%), around 0.8 GB.
-- The binding constraint is the **intersection** of the two sources rather than the size of the dump: of 89,584 Kaggle tracks with audio features, only 31,403 appear in the dump at all, falling to **22,748** after 5-core filtering. That is the effective *training* catalogue, and all downstream metrics — including the 99 sampled negatives and coverage@10 — are measured against it. It is not the *serving* ceiling: 26,360 of the tracks the dump never saw are by an artist that is in the trained pool, so they can still be placed (see [Placing a track the model has never seen](#placing-a-track-the-model-has-never-seen)).
+- The binding constraint is the **intersection** of the two sources rather than the size of the dump: of 89,584 Kaggle tracks with audio features, only 31,403 appear in the dump at all, falling to **22,748** after 5-core filtering. That is the effective *training* catalogue, and all downstream metrics - including the 99 sampled negatives and coverage@10 - are measured against it. It is not the *serving* ceiling: 26,360 of the tracks the dump never saw are by an artist that is in the trained pool, so they can still be placed (see [Placing a track the model has never seen](#placing-a-track-the-model-has-never-seen)).
 - **5-core filtering** is applied iteratively (rather than uniform random sampling, which would break the collaborative signal) so that every retained playlist and track has at least 5 interactions, consistent with standard practice for mitigating power-law noise in sequential/collaborative recommendation research.
 - Playlists **discarded** by the 5-core filter are kept aside as a cold-start evaluation cohort, so the filter stays a *training* decision and does not silently remove the low-activity population the bias analysis needs to examine.
 
@@ -95,14 +95,14 @@ Two ablations, answering different questions:
 | Neutralise the audio **input** of the trained model | −6.1% NDCG@10; shuffling it instead costs −19% |
 | Retrain **without** the audio tower (equivalent normalisation retained) | 0.7734 warm / 0.6692 cold / 0.5054 coherence, i.e. marginally *better* than 0.7724 / 0.6630 / 0.4996 |
 
-The trained model genuinely uses audio — corrupting the signal hurts far more than removing
-it — but the information is **redundant**: an identical model denied audio recovers it from
+The trained model genuinely uses audio - corrupting the signal hurts far more than removing
+it - but the information is **redundant**: an identical model denied audio recovers it from
 the co-occurrence signal, and converges to the same place a couple of epochs later.
 
 **Caveat that matters for deployment.** The 5-core filter guarantees every track has at
 least five interactions, so the evaluation contains no genuinely cold *items*. Content
 features exist to place a track nobody has added to a playlist yet, and that scenario is
-absent by construction — so it was constructed and measured separately, below.
+absent by construction - so it was constructed and measured separately, below.
 
 #### Placing a track the model has never seen
 
@@ -124,9 +124,9 @@ that track's own vector:
 | Placement strategy | NDCG@10 | Applies to |
 |---|---|---|
 | Learned vector (warm ceiling) | 0.7724 | 22,748 trained tracks |
-| **Artist proxy** — mean of the artist's other tracks | **0.6554** | 88% of the catalogue |
+| **Artist proxy** - mean of the artist's other tracks | **0.6554** | 88% of the catalogue |
 | Genre centroid only | 0.4441 | the remainder |
-| Global popularity (reference) | 0.3766 | — |
+| Global popularity (reference) | 0.3766 | - |
 
 An unseen track reaches **85% of the warm ceiling from its artist alone**, with no
 retraining: it is a fold-in on the item side, symmetric to the playlist fold-in. Weighting
@@ -137,8 +137,8 @@ This lifts the served catalogue from 22,748 to **81,738 tracks (3.6×)**, of whi
 have no interaction history at all. Trained tracks keep their original indices, so the user
 vectors and interaction matrix stay aligned.
 
-> **Negative result, recorded deliberately.** The principled alternative — retraining the
-> item tower with random item-ID dropout so it learns to work from content alone —
+> **Negative result, recorded deliberately.** The principled alternative - retraining the
+> item tower with random item-ID dropout so it learns to work from content alone -
 > collapsed: loss pinned at exactly 0.6931 = ln 2 and warm NDCG@10 fell to 0.0000 by epoch
 > 4. Zeroing the ID embedding in 30% of rows gives `item_fusion` a bimodal distribution its
 > BatchNorm cannot normalise, and the terminal ReLU then kills the gradient permanently. A
@@ -150,8 +150,8 @@ Models are compared under a **leave-one-out (LOO)** ranking protocol: one held-o
 
 Results are reported for two cohorts, because a single average would hide the effect of history length:
 
-- **Warm** — playlists that survived the 5-core filter and have a learned embedding.
-- **Cold** — playlists *discarded* by the 5-core filter (2-4 interactions), which have no embedding at all.
+- **Warm** - playlists that survived the 5-core filter and have a learned embedding.
+- **Cold** - playlists *discarded* by the 5-core filter (2-4 interactions), which have no embedding at all.
 
 #### Why the cold cohort exists
 
@@ -184,7 +184,7 @@ weighted by how well a track's genres match the playlist's genre profile.
 | Genre popularity | 0.7925 | 0.8359 | 0.8438 | 0.6510 | 0.6655 | 0.6675 |
 | TruncatedSVD | 0.8087 | 0.8818 | 0.9383 | 0.6878 | 0.7116 | 0.7260 |
 | Two-Tower v1 | 0.7954 | 0.8906 | 0.9485 | 0.6271 | 0.6583 | 0.6730 |
-| **Two-Tower v2** | — | **0.9379** | — | — | **0.7724** | — |
+| **Two-Tower v2** | - | **0.9379** | - | - | **0.7724** | - |
 
 **The headline finding is v1, not v2.** In its first configuration the deep model was beaten
 on NDCG by the classical baseline *and* by a two-line heuristic with no parameters. The
@@ -214,14 +214,14 @@ Applied to the **final** model, with three complementary views:
 |---|---|---|
 | **SHAP** (KernelExplainer, 50 k-means background centroids, 100 interactions) | Audio tower, IDs held fixed | Approximate, model-agnostic |
 | **LIME** (`LimeTabularExplainer`, classification mode) | Same interaction, independent mechanism | Approximate, local surrogate |
-| **Latent factor attribution** | TruncatedSVD | **Exact** — the score decomposes additively over factors |
+| **Latent factor attribution** | TruncatedSVD | **Exact** - the score decomposes additively over factors |
 
 **Findings.** Globally, `danceability` (0.041), `acousticness` (0.038) and
 `instrumentalness` (0.035) carry the largest mean |SHAP|; `tempo` and `liveness` are close
 to irrelevant. Total attribution magnitude is ~0.22 per prediction, so the audio tower
 moves the probability meaningfully but does not dominate it. On a single interaction SHAP
 and LIME agree in sign on 8 of 9 features (89%), which is evidence the local explanation is
-stable rather than an artefact of either method — but note that the locally dominant feature
+stable rather than an artefact of either method - but note that the locally dominant feature
 (`energy`) is only fourth globally, so local explanations must not be generalised.
 
 **The comparative point.** SHAP and LIME can only reach the audio tower, so they explain
@@ -267,7 +267,7 @@ diagnostic: **behavioural** similarity comes from genre co-occurrence within pla
 | Genre popularity | 0.223 | 0.548 | 0.559 |
 | TruncatedSVD | 0.195 | 0.486 | 0.551 |
 | Two-Tower v1 | 0.097 | 0.337 | 0.485 |
-| **Two-Tower v2** | — | **0.500** | — |
+| **Two-Tower v2** | - | **0.500** | - |
 | Global popularity | 0.026 | 0.257 | 0.239 |
 | Random | 0.010 | 0.094 | 0.214 |
 
@@ -292,10 +292,10 @@ RMSE, Recall@k and NDCG@k all answer the same question: *given a track the playl
 
 **How it is measured.** Both models score the **full catalogue** for a sample of playlists, with tracks already in the playlist masked out, and the resulting top-10 lists are pooled into:
 
-- **Catalogue coverage@10** — fraction of distinct tracks that ever appear in any recommendation. Low coverage means most of the catalogue is unreachable.
-- **Gini coefficient of exposure** — `0.0` = every track recommended equally often, `1.0` = all recommendations concentrate on a single track.
+- **Catalogue coverage@10** - fraction of distinct tracks that ever appear in any recommendation. Low coverage means most of the catalogue is unreachable.
+- **Gini coefficient of exposure** - `0.0` = every track recommended equally often, `1.0` = all recommendations concentrate on a single track.
 - **Mean popularity percentile** of recommended tracks, against a catalogue baseline of 50.
-- **Lorenz curve** — the full exposure distribution rather than just its summary statistics.
+- **Lorenz curve** - the full exposure distribution rather than just its summary statistics.
 
 **Why it matters ethically.** The cost is not paid by the listener, who simply sees mainstream suggestions, but by long-tail artists who are never surfaced. That omission is invisible: nobody complains about a recommendation they did not receive, so it generates no signal and no metric. Because recommendations shape listening and listening becomes the next training set, the concentration compounds with each retraining cycle.
 
@@ -391,15 +391,15 @@ cd "frontend/Music Recommender" && npm install && npm run dev
 
 Browse artists by genre and popularity, or search the catalogue directly, assemble a playlist
 that does not exist in the training data, and the model folds it in from the seed tracks.
-Every track carries a badge stating how it was placed — `trained`, `unseen · via artist` or
-`unseen · via genre` — so a recommendation can be interrogated rather than taken on trust.
+Every track carries a badge stating how it was placed - `trained`, `unseen · via artist` or
+`unseen · via genre` - so a recommendation can be interrogated rather than taken on trust.
 
 A playlist built **only from tracks the model never saw** (blink-182's *EDGING*, *Darkside*
 and *I Really Wish I Hated You*, all released after the dump was collected) returns MxPx,
 Pennywise, The Swellers, Millencolin and Masked Intruder: the punk neighbourhood, reached
 without a single observed interaction for any seed.
 
-**[SERVING.md](SERVING.md) documents the serving layer in full** — the deployment bundle and
+**[SERVING.md](SERVING.md) documents the serving layer in full** - the deployment bundle and
 its integrity invariants, the placement tiers, the complete API reference, the interface, and
 the limitations.
 

@@ -1,4 +1,4 @@
-# Serving Layer — API and Demo UI
+# Serving Layer - API and Demo UI
 
 This document covers the application that serves the trained model. The modelling work,
 evaluation and ethics discussion live in [README.md](README.md); this file exists so that
@@ -20,8 +20,8 @@ cache, or the SQLite database.
 
 Every request reduces to two operations:
 
-1. **Fold-in** — average the seed tracks' item vectors to synthesise a user vector.
-2. **Score** — one matrix-vector product over `float32` arrays, then a top-k.
+1. **Fold-in** - average the seed tracks' item vectors to synthesise a user vector.
+2. **Score** - one matrix-vector product over `float32` arrays, then a top-k.
 
 For 81,738 tracks at 32 dimensions this is a 10 MB dot product: a few milliseconds, single
 threaded, no GPU. The same property is what would allow the item vectors to move into an
@@ -30,7 +30,7 @@ ANN index (FAISS, HNSW) if the catalogue outgrew a dense scan.
 > **The subtle part.** The synthetic user vector must be built from **post-fusion** item
 > vectors, not raw ID embeddings. Those are two different vector spaces, and averaging the
 > wrong one returns rankings that look plausible but are arbitrary. This was a real bug
-> during development, and it is silent — nothing crashes, the output is just wrong.
+> during development, and it is silent - nothing crashes, the output is just wrong.
 
 ---
 
@@ -40,8 +40,8 @@ Written by the export cells of `main.ipynb` into `deploy/` (git-ignored, ~63 MB)
 
 | File | Contents |
 |---|---|
-| `item_vectors.npy` | `(81738, 32)` float32 — every servable track |
-| `user_vectors.npy` | `(328961, 32)` float32 — learned playlist embeddings |
+| `item_vectors.npy` | `(81738, 32)` float32 - every servable track |
+| `user_vectors.npy` | `(328961, 32)` float32 - learned playlist embeddings |
 | `catalogue.json` | Track id, name, artist list, genre list, plays, placement tier |
 | `playlist_ids.json` | Index → original playlist id, for the warm path |
 | `train_interactions.npz` | Sparse matrix used to exclude tracks a playlist already has |
@@ -70,7 +70,7 @@ vector, and the API returns it with every result.
 | `learned` | 22,748 | Its own playlist co-occurrences | 0.7724 |
 | `artist` | 25,766 | Mean of the artist's known tracks | 0.6554 |
 | `genre` | 33,224 | Its genre centroid | 0.4441 |
-| `catalogue` | 0 | Global centroid, last resort | — |
+| `catalogue` | 0 | Global centroid, last resort | - |
 
 For reference, a global popularity ranker scores 0.3766 on the same task, so even the
 weakest tier beats the trivial baseline. The methodology behind these numbers is in
@@ -90,7 +90,7 @@ Catalogue size, trained-track count, per-tier breakdown, embedding dimension, an
 measured cold-item scores.
 
 ### `GET /api/genres`
-All 114 genres with the number of artists carrying each. Alphabetical — ranking by artist
+All 114 genres with the number of artists carrying each. Alphabetical - ranking by artist
 count buries `rock` behind niche genres full of single-track artists.
 
 ### `GET /api/artists`
@@ -129,10 +129,10 @@ are excluded using `train_interactions.npz`.
 
 Three panels, left to right, so the flow is linear.
 
-**1. Pick an artist.** Genre chips (multi-select, any-of), a `Popular` / `A–Z` sort toggle,
+**1. Pick an artist.** Genre chips (multi-select, any-of), a `Popular` / `A-Z` sort toggle,
 a debounced search box, and an infinite-scroll list that pages 50 at a time.
 
-**2. Add tracks.** Either the selected artist's tracks, or — with its own search box — any
+**2. Add tracks.** Either the selected artist's tracks, or - with its own search box - any
 track in the catalogue without going through an artist first. Clearing the search returns to
 the artist that was being browsed.
 
@@ -146,7 +146,7 @@ reason in the tooltip.
 - **Artist ordering.** Alphabetical was the initial request, but a raw ASCII sort opens on
   `!nvite`, `"Cats" 1983 Broadway Cast` and `#Kids`. Names starting with punctuation are now
   grouped last, and popularity is the default order with alphabetical available on the
-  toggle — a first screen of `0-600` and `04 Limited Sazabys` is not a usable entry point.
+  toggle - a first screen of `0-600` and `04 Limited Sazabys` is not a usable entry point.
 - **Search ranking.** Sorting matches purely alphabetically put Green Bicycle above Green
   Day. Within each match group, plays now decide.
 - **Genre chip ordering.** Ranking by artist count put `deep-house` and `show-tunes` first
@@ -161,10 +161,10 @@ The `deploy/` bundle must exist first; it is produced by the export cells at the
 `main.ipynb`.
 
 ```bash
-# API — http://127.0.0.1:8000
+# API - http://127.0.0.1:8000
 python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
 
-# UI — http://localhost:5173, proxies /api to the API
+# UI - http://localhost:5173, proxies /api to the API
 cd "frontend/Music Recommender" && npm install && npm run dev
 ```
 
@@ -180,7 +180,7 @@ because all three were released after the MPD dump was collected:
 
 *EDGING*, *Darkside*, *I Really Wish I Hated You*
 
-The continuations are MxPx, Pennywise, The Swellers, Millencolin and Masked Intruder — the
+The continuations are MxPx, Pennywise, The Swellers, Millencolin and Masked Intruder - the
 punk neighbourhood, reached without a single observed interaction for any seed. Repeating the
 exercise with Metallica returns Iron Maiden and Slayer rather than punk, which shows the
 conditioning is real and not a popularity fallback.
@@ -192,7 +192,7 @@ conditioning is real and not a popularity fallback.
 - **Collaborations skew towards the more prolific artist.** The artist proxy weights by
   track count, so a blink-182 × XXXTENTACION track lands in emo-rap. Measured against
   one-vote-per-artist the difference is negligible in aggregate (0.6554 vs 0.6546), so the
-  simpler rule was kept — but it is visible on individual collaborations.
+  simpler rule was kept - but it is visible on individual collaborations.
 - **Duplicate recordings survive in the trained catalogue.** The same song exists under
   several Spotify ids. Cold duplicates are removed, but trained ones are kept because their
   indices are load-bearing.

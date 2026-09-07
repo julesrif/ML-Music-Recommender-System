@@ -19,6 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from scipy.sparse import load_npz
 from dotenv import load_dotenv
@@ -26,6 +27,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 DEPLOY = Path(__file__).resolve().parent / "deploy"
+PREVIEWS_DIR = DEPLOY / "previews"
+PREVIEWS_DIR.mkdir(parents=True, exist_ok=True)
 
 state: dict = {}
 
@@ -119,7 +122,9 @@ async def lifespan(app: FastAPI):
     state.clear()
 
 
-app = FastAPI(title="Playlist Continuation API", lifespan=lifespan)
+app = FastAPI(lifespan=lifespan)
+app.mount("/api/previews", StaticFiles(directory=PREVIEWS_DIR), name="previews")
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -352,8 +357,20 @@ def fetch_deezer_track(t_id, track_metadata, new_cache_entries):
                     track = data_list[0]
                     if track.get("album") and track["album"].get("cover_medium"):
                         track_info["cover"] = track["album"]["cover_medium"]
+                    if track.get("artist") and track["artist"].get("picture_medium"):
+                        track_info["artist_cover"] = track["artist"]["picture_medium"]
                     if track.get("preview"):
-                        track_info["preview_url"] = track["preview"]
+                        preview_url = track["preview"]
+                        mp3_path = PREVIEWS_DIR / f"{t_id}.mp3"
+                        if not mp3_path.exists():
+                            try:
+                                with urllib.request.urlopen(preview_url, timeout=5) as mp3_res:
+                                    mp3_path.write_bytes(mp3_res.read())
+                            except Exception as e:
+                                print(f"Error downloading preview {t_id}: {e}")
+                        
+                        if mp3_path.exists():
+                            track_info["preview_url"] = f"/api/previews/{t_id}.mp3"
                 break 
         except urllib.error.HTTPError as e:
             if e.code == 429 or e.code >= 500:

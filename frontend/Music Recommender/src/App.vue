@@ -71,19 +71,18 @@ const stats = ref<{
   tiers: Record<string, number>
 } | null>(null)
 
-const spotifyData = ref<Record<string, { cover?: string, preview_url?: string }>>({})
+const spotifyData = ref<Record<string, { cover?: string, preview_url?: string, artist_cover?: string }>>({})
 
 const currentPreviewUrl = ref<string | null>(null)
 const audioPlayer = new Audio()
 audioPlayer.addEventListener('ended', () => { currentPreviewUrl.value = null })
-audioPlayer.addEventListener('pause', () => { currentPreviewUrl.value = null })
-audioPlayer.addEventListener('play', () => { currentPreviewUrl.value = audioPlayer.src })
 
 function togglePreview(url: string | undefined, e: Event) {
   e.stopPropagation()
   if (!url) return
   if (currentPreviewUrl.value === url) {
     audioPlayer.pause()
+    currentPreviewUrl.value = null
   } else {
     audioPlayer.src = url
     audioPlayer.play()
@@ -476,7 +475,15 @@ function reset() {
                     
                     <div class="flex-1 min-w-0">
                       <p class="text-[15px] font-semibold truncate transition-colors" :class="inPlaylist.has(track.track_id) ? 'text-slate-300' : 'text-slate-100 group-hover/track:text-white'">{{ track.name }}</p>
-                      <p class="text-xs text-slate-400 truncate mt-1">{{ searchMode ? track.artists : track.genres }}</p>
+                      <div class="text-xs text-slate-400 truncate mt-1 flex items-center gap-1.5">
+                        <template v-if="searchMode">
+                          <img v-if="spotifyData[track.track_id]?.artist_cover" :src="spotifyData[track.track_id].artist_cover" class="w-4 h-4 rounded-full object-cover" />
+                          <span>{{ track.artists }}</span>
+                        </template>
+                        <template v-else>
+                          <span>{{ track.genres }}</span>
+                        </template>
+                      </div>
                     </div>
                     
                     <div class="shrink-0 hidden sm:block">
@@ -533,7 +540,10 @@ function reset() {
                   </div>
                   <div class="flex-1 min-w-0">
                     <p class="text-sm font-bold text-slate-200 truncate group-hover:text-white transition-colors">{{ track.name }}</p>
-                    <p class="text-xs text-slate-400 truncate mt-0.5">{{ track.artists }}</p>
+                    <p class="text-xs text-slate-400 truncate mt-0.5 flex items-center gap-1.5">
+                      <img v-if="spotifyData[track.track_id]?.artist_cover" :src="spotifyData[track.track_id].artist_cover" class="w-4 h-4 rounded-full object-cover" />
+                      <span>{{ track.artists }}</span>
+                    </p>
                   </div>
                   <button 
                     class="shrink-0 p-2 text-slate-500 hover:text-rose-400 hover:bg-rose-500/20 rounded-xl transition-all duration-200 opacity-0 group-hover:opacity-100"
@@ -662,18 +672,32 @@ function reset() {
               
               <div class="mb-5 flex-1">
                 <h3 class="text-lg font-bold text-slate-100 mb-1.5 line-clamp-1 group-hover:text-purple-300 transition-colors">{{ track.name }}</h3>
-                <p class="text-sm text-slate-400 line-clamp-1">{{ track.artists }}</p>
+                <p class="text-sm text-slate-400 line-clamp-1 flex items-center gap-2">
+                  <img v-if="spotifyData[track.track_id]?.artist_cover" :src="spotifyData[track.track_id].artist_cover" class="w-5 h-5 rounded-full object-cover shadow-sm" />
+                  <span>{{ track.artists }}</span>
+                </p>
               </div>
               
               <div class="mt-auto pt-4 border-t border-slate-800/80 flex items-center justify-between">
                 <span class="text-[11px] text-slate-500 truncate max-w-[130px] font-medium" :title="track.genres">{{ track.genres || 'Unknown Genre' }}</span>
-                <span
-                  class="px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest shadow-sm"
-                  :class="tierOf(track).class"
-                  :title="track.placement"
-                >
-                  {{ tierOf(track).label }}
-                </span>
+                <div class="flex items-center gap-2">
+                  <span
+                    class="px-3 py-1.5 rounded-lg border text-[10px] font-bold uppercase tracking-widest shadow-sm"
+                    :class="tierOf(track).class"
+                    :title="track.placement"
+                  >
+                    {{ tierOf(track).label }}
+                  </span>
+                  <button 
+                    class="w-8 h-8 rounded-lg flex items-center justify-center transition-colors"
+                    :class="inPlaylist.has(track.track_id) ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-400 hover:bg-cyan-500 hover:text-slate-950'"
+                    @click="toggleTrack(track)"
+                    :title="inPlaylist.has(track.track_id) ? 'Remove from playlist' : 'Add to playlist'"
+                  >
+                    <svg v-if="inPlaylist.has(track.track_id)" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" /></svg>
+                    <svg v-else class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

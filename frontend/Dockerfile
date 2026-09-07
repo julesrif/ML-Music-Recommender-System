@@ -4,9 +4,9 @@
 FROM node:20-alpine AS build
 
 WORKDIR /app
-COPY package.json ./
+COPY "Music Recommender/package.json" "Music Recommender/package-lock.json*" ./
 RUN npm install
-COPY . .
+COPY "Music Recommender/" ./
 RUN npm run build
 
 FROM nginx:alpine

@@ -6,6 +6,12 @@ request is a mean over seed vectors followed by one matrix-vector product and a 
 """
 
 import json
+import os
+import base64
+import urllib.request
+import urllib.parse
+import urllib.error
+import time
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -14,6 +20,9 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from scipy.sparse import load_npz
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DEPLOY = Path(__file__).resolve().parent / "deploy"
 
@@ -23,6 +32,7 @@ state: dict = {}
 class NewPlaylistRequest(BaseModel):
     track_ids: list[str] = Field(min_length=1)
     k: int = Field(default=10, ge=1, le=100)
+    exclude_artists: bool = False
 
 
 @asynccontextmanager
@@ -257,11 +267,22 @@ def recommend_new(request: NewPlaylistRequest):
     # trained to dot against. Averaging raw ID embeddings would mix two different spaces.
     synthetic_user = item_vectors[seeds].mean(axis=0)
     scores = item_vectors @ synthetic_user
+    
+    exclude = set(seeds)
+    if request.exclude_artists:
+        artists_to_exclude = set()
+        for s in seeds:
+            row = state["catalogue"][s]
+            for artist in row.get("artist_list") or []:
+                artists_to_exclude.add(artist.strip().lower())
+        for artist in artists_to_exclude:
+            if artist in state["artists"]:
+                exclude.update(state["artists"][artist]["tracks"])
 
     return {
         "seeds": [_entry(i) for i in seeds],
         "unknown_tracks": [t for t in request.track_ids if t not in index_by_track],
-        "recommendations": _rank(scores, set(seeds), request.k),
+        "recommendations": _rank(scores, exclude, request.k),
     }
 
 
@@ -283,3 +304,78 @@ def recommend_historical(playlist_id: str, k: int = Query(10, ge=1, le=100)):
         "known_tracks": len(known),
         "recommendations": _rank(scores, known, k),
     }
+
+spotify_token = {"access_token": "", "expires_at": 0}
+
+def get_spotify_token():
+    now = time.time()
+    if spotify_token["access_token"] and now < spotify_token["expires_at"]:
+        return spotify_token["access_token"], None
+    
+    client_id = os.getenv("SPOTIFY_CLIENT_ID")
+    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
+    if not client_id or not client_secret:
+        return "", "Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET in environment"
+    
+    auth_str = f"{client_id}:{client_secret}"
+    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
+    
+    req = urllib.request.Request(
+        "https://accounts.spotify.com/api/token",
+        data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode(),
+        headers={
+            "Authorization": f"Basic {b64_auth_str}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        },
+        method="POST"
+    )
+    
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode())
+            spotify_token["access_token"] = res_data["access_token"]
+            spotify_token["expires_at"] = now + res_data.get("expires_in", 3600) - 60
+            return spotify_token["access_token"], None
+    except urllib.error.URLError as e:
+        error_msg = str(e)
+        if hasattr(e, 'read'):
+            error_msg += " " + e.read().decode()
+        return "", f"Token Error: {error_msg}"
+
+@app.get("/api/covers")
+def get_covers(ids: str = Query(..., min_length=1)):
+    """Fetch album covers from Spotify given a comma-separated list of track IDs (max 50)."""
+    token, err = get_spotify_token()
+    if not token:
+        return {"data": {}, "error": err}
+        
+    track_ids = [t.strip().split(":")[-1] for t in ids.split(",") if t.strip()][:50]
+    if not track_ids:
+        return {"data": {}, "error": "No valid track IDs provided"}
+        
+    req = urllib.request.Request(
+        f"https://api.spotify.com/v1/tracks?ids={','.join(track_ids)}",
+        headers={"Authorization": f"Bearer {token}"}
+    )
+    
+    spotify_data = {}
+    try:
+        with urllib.request.urlopen(req) as response:
+            res_data = json.loads(response.read().decode())
+            for track in res_data.get("tracks", []):
+                if track:
+                    t_id = track["id"]
+                    spotify_data[t_id] = {}
+                    if track.get("album") and track["album"].get("images"):
+                        images = track["album"]["images"]
+                        spotify_data[t_id]["cover"] = images[-1]["url"]
+                    if track.get("preview_url"):
+                        spotify_data[t_id]["preview_url"] = track["preview_url"]
+    except urllib.error.URLError as e:
+        error_msg = str(e)
+        if hasattr(e, 'read'):
+            error_msg += " " + e.read().decode()
+        return {"data": spotify_data, "error": f"API Error: {error_msg}"}
+        
+    return {"data": spotify_data, "error": None}
+

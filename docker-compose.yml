@@ -6,7 +6,7 @@ services:
     container_name: recsys_backend
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "8091:8091"
     volumes:
       - ./deploy:/app/deploy
     env_file:
@@ -15,7 +15,7 @@ services:
       - OMP_NUM_THREADS=1
       - MKL_NUM_THREADS=1
     healthcheck:
-      test: [ "CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('localhost:8000'); conn.request('GET', '/api/health'); exit(0 if conn.getresponse().status == 200 else 1)" ]
+      test: [ "CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('localhost:8091'); conn.request('GET', '/api/health'); exit(0 if conn.getresponse().status == 200 else 1)" ]
       interval: 30s
       timeout: 10s
       retries: 3

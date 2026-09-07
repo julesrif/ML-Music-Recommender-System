@@ -69,7 +69,7 @@
                     if (!playlistId.value) return;
                     results.value = [];
                     try {
-                        const res = await fetch(`http://localhost:8000/recommend/${playlistId.value}`);
+                        const res = await fetch(`http://localhost:8091/recommend/${playlistId.value}`);
                         if (!res.ok) throw new Error("Playlist no encontrada");
                         const data = await res.json();
                         results.value = data.recommendations || [];
@@ -83,7 +83,7 @@
                     if (tracks.length === 0) return;
                     results.value = [];
                     try {
-                        const res = await fetch(`http://localhost:8000/recommend/new`, {
+                        const res = await fetch(`http://localhost:8091/recommend/new`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ track_ids: tracks })

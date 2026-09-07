@@ -387,8 +387,8 @@ has already been applied to the whole catalogue, so the API needs neither PyTorc
 training cache: each request is a fold-in plus one matrix-vector product.
 
 ```bash
-# API on http://127.0.0.1:8000
-python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+# API on http://127.0.0.1:8091
+python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8091
 
 # UI on http://localhost:5173 (proxies /api to the API)
 cd "frontend/Music Recommender" && npm install && npm run dev

@@ -83,7 +83,7 @@ challenged on the evidence behind it rather than accepted on trust.
 
 ## API reference
 
-Base URL `http://127.0.0.1:8000`. CORS is restricted to the Vite dev server origins.
+Base URL `http://127.0.0.1:8091`. CORS is restricted to the Vite dev server origins.
 
 ### `GET /api/health`
 Catalogue size, trained-track count, per-tier breakdown, embedding dimension, and the
@@ -161,8 +161,8 @@ The `deploy/` bundle must exist first; it is produced by the export cells at the
 `main.ipynb`.
 
 ```bash
-# API - http://127.0.0.1:8000
-python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8000
+# API - http://127.0.0.1:8091
+python -m uvicorn main:app --app-dir backend --host 127.0.0.1 --port 8091
 
 # UI - http://localhost:5173, proxies /api to the API
 cd "frontend/Music Recommender" && npm install && npm run dev

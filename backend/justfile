@@ -2,11 +2,11 @@ set shell := ["powershell", "-NoProfile", "-Command"]
 
 # Run FastAPI dev server with hot reload
 dev:
-    python -m uvicorn api:app --reload --port 8000
+    python -m uvicorn api:app --reload --port 8091
 
 # Run FastAPI production server (used inside Docker)
 serve:
-    python -m uvicorn api:app --host 0.0.0.0 --port 8000
+    python -m uvicorn api:app --host 0.0.0.0 --port 8091
 
 # Install dependencies (FastAPI, PyTorch, Pandas, Scikit-learn, etc.)
 install:

@@ -60,6 +60,11 @@ The serialised training artefacts (`cache/dl_cache.pkl`) hold only anonymised in
 
 This is data minimisation, not a claim of regulatory compliance: no lawful basis or consent exists for the underlying processing, which is why the system stays an academic PoC.
 
+### Audio Previews & Covers (Deezer API)
+
+To enrich the user interface with album covers and 30-second audio previews, the frontend application queries the backend, which in turn acts as a bridge to the public **Deezer API**. 
+This is used strictly for academic and demonstration purposes. No user data is sent to Deezer, only track names and artist strings to match against their public catalogue.
+
 ---
 
 ## Pipeline Overview

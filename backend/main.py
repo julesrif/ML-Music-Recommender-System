@@ -14,6 +14,7 @@ import urllib.error
 import time
 from contextlib import asynccontextmanager
 from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 from fastapi import FastAPI, HTTPException, Query
@@ -305,77 +306,103 @@ def recommend_historical(playlist_id: str, k: int = Query(10, ge=1, le=100)):
         "recommendations": _rank(scores, known, k),
     }
 
-spotify_token = {"access_token": "", "expires_at": 0}
+import threading
 
-def get_spotify_token():
-    now = time.time()
-    if spotify_token["access_token"] and now < spotify_token["expires_at"]:
-        return spotify_token["access_token"], None
-    
-    client_id = os.getenv("SPOTIFY_CLIENT_ID")
-    client_secret = os.getenv("SPOTIFY_CLIENT_SECRET")
-    if not client_id or not client_secret:
-        return "", "Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET in environment"
-    
-    auth_str = f"{client_id}:{client_secret}"
-    b64_auth_str = base64.b64encode(auth_str.encode()).decode()
-    
-    req = urllib.request.Request(
-        "https://accounts.spotify.com/api/token",
-        data=urllib.parse.urlencode({"grant_type": "client_credentials"}).encode(),
-        headers={
-            "Authorization": f"Basic {b64_auth_str}",
-            "Content-Type": "application/x-www-form-urlencoded"
-        },
-        method="POST"
-    )
-    
+DEEZER_CACHE_FILE = DEPLOY / "deezer_cache.json"
+deezer_cache = {}
+if DEEZER_CACHE_FILE.is_file():
     try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode())
-            spotify_token["access_token"] = res_data["access_token"]
-            spotify_token["expires_at"] = now + res_data.get("expires_in", 3600) - 60
-            return spotify_token["access_token"], None
-    except urllib.error.URLError as e:
-        error_msg = str(e)
-        if hasattr(e, 'read'):
-            error_msg += " " + e.read().decode()
-        return "", f"Token Error: {error_msg}"
+        deezer_cache = json.loads(DEEZER_CACHE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+deezer_cache_lock = threading.Lock()
+
+def fetch_deezer_track(t_id, track_metadata, new_cache_entries):
+    now = time.time()
+    
+    with deezer_cache_lock:
+        cached = deezer_cache.get(t_id)
+        if cached and (now - cached.get("timestamp", 0) < 604800):
+            return t_id, cached.get("data", {})
+            
+    artist_list = track_metadata.get("artist_list")
+    if artist_list and len(artist_list) > 0:
+        artist = artist_list[0].strip()
+    else:
+        artist = track_metadata.get("artists", "").split(",")[0].strip()
+        
+    name = track_metadata.get("name", "").strip()
+    query = f'artist:"{artist}" track:"{name}"'
+    url = f"https://api.deezer.com/search/track?q={urllib.parse.quote(query)}&limit=1"
+    
+    req = urllib.request.Request(url)
+    max_retries = 3
+    track_info = {}
+    
+    for attempt in range(max_retries):
+        try:
+            with urllib.request.urlopen(req, timeout=5) as response:
+                res_data = json.loads(response.read().decode())
+                
+                if "error" in res_data:
+                    raise Exception(f"Deezer API Error: {res_data['error']}")
+                    
+                data_list = res_data.get("data", [])
+                if data_list:
+                    track = data_list[0]
+                    if track.get("album") and track["album"].get("cover_medium"):
+                        track_info["cover"] = track["album"]["cover_medium"]
+                    if track.get("preview"):
+                        track_info["preview_url"] = track["preview"]
+                break 
+        except urllib.error.HTTPError as e:
+            if e.code == 429 or e.code >= 500:
+                time.sleep(2 ** attempt)
+                continue
+            break 
+        except Exception as e:
+            print(f"Error fetching {t_id} from Deezer (attempt {attempt+1}): {e}")
+            time.sleep(2 ** attempt)
+            continue
+            
+    with deezer_cache_lock:
+        deezer_cache[t_id] = {
+            "timestamp": now,
+            "data": track_info
+        }
+        new_cache_entries.append(t_id)
+            
+    return t_id, track_info
 
 @app.get("/api/covers")
 def get_covers(ids: str = Query(..., min_length=1)):
-    """Fetch album covers from Spotify given a comma-separated list of track IDs (max 50)."""
-    token, err = get_spotify_token()
-    if not token:
-        return {"data": {}, "error": err}
-        
+    """Fetch album covers from Deezer given a comma-separated list of original track IDs (max 50)."""
     track_ids = [t.strip().split(":")[-1] for t in ids.split(",") if t.strip()][:50]
     if not track_ids:
         return {"data": {}, "error": "No valid track IDs provided"}
         
-    req = urllib.request.Request(
-        f"https://api.spotify.com/v1/tracks?ids={','.join(track_ids)}",
-        headers={"Authorization": f"Bearer {token}"}
-    )
+    deezer_data = {}
+    new_cache_entries = []
     
-    spotify_data = {}
-    try:
-        with urllib.request.urlopen(req) as response:
-            res_data = json.loads(response.read().decode())
-            for track in res_data.get("tracks", []):
-                if track:
-                    t_id = track["id"]
-                    spotify_data[t_id] = {}
-                    if track.get("album") and track["album"].get("images"):
-                        images = track["album"]["images"]
-                        spotify_data[t_id]["cover"] = images[-1]["url"]
-                    if track.get("preview_url"):
-                        spotify_data[t_id]["preview_url"] = track["preview_url"]
-    except urllib.error.URLError as e:
-        error_msg = str(e)
-        if hasattr(e, 'read'):
-            error_msg += " " + e.read().decode()
-        return {"data": spotify_data, "error": f"API Error: {error_msg}"}
-        
-    return {"data": spotify_data, "error": None}
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = []
+        for t_id in track_ids:
+            idx = state.get("index_by_track", {}).get(t_id)
+            if idx is not None:
+                track_meta = state["catalogue"][idx]
+                futures.append(executor.submit(fetch_deezer_track, t_id, track_meta, new_cache_entries))
+                
+        for future in futures:
+            t_id, info = future.result()
+            if info:
+                deezer_data[t_id] = info
+                
+    if new_cache_entries:
+        with deezer_cache_lock:
+            try:
+                DEEZER_CACHE_FILE.write_text(json.dumps(deezer_cache), encoding="utf-8")
+            except Exception as e:
+                print(f"Failed to write cache: {e}")
+
+    return {"data": deezer_data, "error": None}
 

@@ -690,7 +690,7 @@ function reset() {
           GitHub Repo: <a href="https://github.com/julesrif/ML-Music-Recommender-System" target="_blank" rel="noopener noreferrer" class="text-cyan-600 hover:text-cyan-400 transition-colors">https://github.com/julesrif/ML-Music-Recommender-System</a>
         </p>
         <p class="text-xs text-slate-600">
-          Frontend creation was supported by Gemini 3.1 Pro.
+          Frontend creation was supported by Gemini 3.1 Pro. Audio previews and album covers provided by the Deezer API.
         </p>
       </footer>
     </div>

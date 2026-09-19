@@ -337,8 +337,8 @@ def fetch_deezer_track(t_id, track_metadata, new_cache_entries):
         artist = track_metadata.get("artists", "").split(",")[0].strip()
         
     name = track_metadata.get("name", "").strip()
-    query = f'artist:"{artist}" track:"{name}"'
-    url = f"https://api.deezer.com/search/track?q={urllib.parse.quote(query)}&limit=1"
+    query = f"{artist} {name}"
+    url = f"https://api.deezer.com/search?q={urllib.parse.quote(query)}&limit=1"
     
     req = urllib.request.Request(url)
     max_retries = 3
